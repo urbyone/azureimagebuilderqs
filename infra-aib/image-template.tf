@@ -52,8 +52,8 @@ resource "local_file" "image_template_json" {
           name        = "settingUpMgmtAgtPath"
           runElevated = false
           inline = [
-            "mkdir c:\\buildActions",
-            "echo Azure-Image-Builder-Was-Here  > c:\\buildActions\\buildActionsOutput.txt"
+            "mkdir c:\\buildActions2",
+            "echo Azure-Image-Builder-Was-Here  > c:\\buildActions2\\buildActionsOutput.txt"
           ]
         },
         {
