@@ -22,7 +22,7 @@ fi
 # Create Storage for Terraform state file if required or Skip if already created.#
 ##################################################################################
 export REGION="uksouth"
-export TF_RESOURCE_GROUP="rg-${REGION}-terraform-$(date +%s)"
+export TF_RESOURCE_GROUP="$(grep 'resource_group_name' infra-aib/variables.auto.tfvars | awk -F '"' '{print $2}')-temp-tfstate"
 az group create -n $TF_RESOURCE_GROUP -l $REGION --tags Description="Terraform State File for Github Actions Image Builder Demo"
 
 export TF_STORAGE_ACCOUNT=$(head /dev/urandom | tr -dc a-z0-9 | head -c 24)
