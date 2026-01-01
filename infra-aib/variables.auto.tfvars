@@ -1,6 +1,6 @@
-resource_group_name   = "rg-imagebuilder-cu"
+resource_group_name   = "rg-imagebuilder-gh"
 location              = "uksouth"
-managed_identity_name = "uami-imagebuilder-cu"
+managed_identity_name = "uami-imagebuilder-gh"
 vm_profile = {
   vmSize       = "Standard_D2s_v3"
   osDiskSizeGB = 127
