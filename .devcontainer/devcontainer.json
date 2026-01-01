@@ -22,6 +22,7 @@
       
       // Recommended extensions for Azure/Terraform development
       "extensions": [
+        "github.vscode-github-actions",
         "ms-vscode.azure-account",
         "ms-azuretools.vscode-azureresourcegroups",
         "ms-azuretools.vscode-azurestorage",
