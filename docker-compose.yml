@@ -1,0 +1,50 @@
+services:
+  # Main development container with Azure CLI and Terraform
+  azure-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: terradev:latest
+    container_name: azimagebuilder
+    volumes:
+      # Mount your local directory to persist work
+      - .:/workspace
+      # Mount Azure credentials (if you want to persist login)
+      - azure-credentials:/home/admin/.azure
+      # Mount Terraform state and config
+      - terraform-config:/home/admin/.terraform.d
+    #env_file:
+    #  # Load environment variables from .env file (not committed to git)
+    #  - .tf.env
+    environment:
+      - TERM=xterm-256color
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+
+  # Alternative: Pre-built image approach (faster startup)
+  # azure-dev-quick:
+  #   image: mcr.microsoft.com/azure-cli:latest
+  #   container_name: azure-cli-quick
+  #   volumes:
+  #     - .:/workspace
+  #     - azure-credentials:/home/az/.azure
+  #   working_dir: /workspace
+  #   stdin_open: true
+  #   tty: true
+  #   # Install additional tools on startup
+  #   command: >
+  #     sh -c "
+  #       apt-get update &&
+  #       apt-get install -y wget unzip &&
+  #       wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip &&
+  #       unzip terraform_1.5.7_linux_amd64.zip &&
+  #       mv terraform /usr/local/bin/ &&
+  #       rm terraform_1.5.7_linux_amd64.zip &&
+  #       /bin/bash
+  #     "
+
+volumes:
+  # Persistent volumes to keep your Azure login and Terraform config
+  azure-credentials:
+  terraform-config:

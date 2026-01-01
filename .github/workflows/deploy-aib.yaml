@@ -1,0 +1,349 @@
+name: Deploy Azure Image Builder Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra-aib/**'
+  workflow_dispatch:
+
+env:
+  TERRAFORM_VERSION: '1.14.3'
+  WORKING_DIRECTORY: './infra-aib'
+
+jobs:
+  check-providers:
+    name: Check Azure Provider Registration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Check Azure Provider Registration Status
+        run: |
+          echo "Checking Azure provider registration status..."
+          echo ""
+          
+          # Define required providers
+          PROVIDERS=(
+            "Microsoft.VirtualMachineImages"
+            "Microsoft.KeyVault"
+            "Microsoft.Compute"
+            "Microsoft.Storage"
+            "Microsoft.Network"
+            "Microsoft.ContainerInstance"
+          )
+          
+          ALL_REGISTERED=true
+          
+          # Check each provider
+          for PROVIDER in "${PROVIDERS[@]}"; do
+            echo "Checking provider: $PROVIDER"
+            STATE=$(az provider show -n "$PROVIDER" --query "registrationState" -o tsv)
+            echo "  Registration State: $STATE"
+            
+            if [ "$STATE" != "Registered" ]; then
+              echo "  ⚠️  WARNING: Provider $PROVIDER is not registered (State: $STATE)"
+              ALL_REGISTERED=false
+            else
+              echo "  ✓ Provider is registered"
+            fi
+            echo ""
+          done
+          
+          if [ "$ALL_REGISTERED" = false ]; then
+            echo "::warning::Some Azure providers are not registered. Consider registering them with 'az provider register --namespace <provider-name>'"
+            echo ""
+            echo "To register all required providers, run:"
+            echo "az provider register --namespace Microsoft.VirtualMachineImages"
+            echo "az provider register --namespace Microsoft.KeyVault"
+            echo "az provider register --namespace Microsoft.Compute"
+            echo "az provider register --namespace Microsoft.Storage"
+            echo "az provider register --namespace Microsoft.Network"
+            echo "az provider register --namespace Microsoft.ContainerInstance"
+            exit 1
+          else
+            echo "✓ All required Azure providers are registered"
+          fi
+
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    needs: check-providers
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Azure Authentication for Terraform
+        run: |
+          echo "Setting up Azure authentication environment variables for Terraform..."
+          
+          # Extract credentials from AZURE_CREDENTIALS JSON
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId')
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret')
+          TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId')
+          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
+          
+          echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
+          
+          echo "✓ Azure authentication variables configured"
+          echo "  Client ID: $CLIENT_ID"
+          echo "  Tenant ID: $TENANT_ID"
+          echo "  Subscription ID: $SUBSCRIPTION_ID"
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+
+      - name: Terraform Validate
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: terraform validate
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: terraform fmt -check -recursive
+
+  plan:
+    name: Plan Infrastructure
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Azure Authentication for Terraform
+        run: |
+          echo "Setting up Azure authentication environment variables for Terraform..."
+          
+          # Extract credentials from AZURE_CREDENTIALS JSON
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId')
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret')
+          TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId')
+          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
+          
+          echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
+          
+          echo "✓ Azure authentication variables configured"
+          echo "  Client ID: $CLIENT_ID"
+          echo "  Tenant ID: $TENANT_ID"
+          echo "  Subscription ID: $SUBSCRIPTION_ID"
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: terraform plan -out=tfplan
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIRECTORY }}/tfplan
+          retention-days: 7
+
+  apply:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.ref == 'refs/heads/main'
+    environment: labs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Azure Authentication for Terraform
+        run: |
+          echo "Setting up Azure authentication environment variables for Terraform..."
+          
+          # Extract credentials from AZURE_CREDENTIALS JSON
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId')
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret')
+          TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId')
+          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
+          
+          echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
+          
+          echo "✓ Azure authentication variables configured"
+          echo "  Client ID: $CLIENT_ID"
+          echo "  Tenant ID: $TENANT_ID"
+          echo "  Subscription ID: $SUBSCRIPTION_ID"
+          
+          # Verify Azure CLI is working
+          echo ""
+          echo "Azure CLI Version:"
+          az --version
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: terraform apply -auto-approve
+
+      - name: Create Image Template
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          echo "Creating Azure Image Builder template..."
+          
+          # Get Terraform outputs
+          RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+          TEMPLATE_NAME=$(terraform output -raw image_template_resource_name)
+          TEMPLATE_FILE=$(terraform output -raw image_template_json_filename)
+          
+          # Create the Image Template resource
+          az resource create \
+            --resource-group "$RESOURCE_GROUP" \
+            --properties @"$TEMPLATE_FILE" \
+            --is-full-object \
+            --resource-type Microsoft.VirtualMachineImages/imageTemplates \
+            --name "$TEMPLATE_NAME"
+          
+          echo "Image template '$TEMPLATE_NAME' created successfully"
+
+      - name: Build Custom Image
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          echo "Starting image build process..."
+          
+          # Get Terraform outputs
+          RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+          TEMPLATE_NAME=$(terraform output -raw image_template_resource_name)
+          
+          # Invoke the image build action
+          az resource invoke-action \
+            --resource-group "$RESOURCE_GROUP" \
+            --resource-type Microsoft.VirtualMachineImages/imageTemplates \
+            --name "$TEMPLATE_NAME" \
+            --action Run
+          
+          echo "Image build triggered successfully for template '$TEMPLATE_NAME'"
+          echo "Note: The build process runs asynchronously and may take several minutes to complete."
+
+      - name: Check Image Build Status
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          echo "Checking image template status..."
+          
+          # Get Terraform outputs
+          RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+          TEMPLATE_NAME=$(terraform output -raw image_template_resource_name)
+          
+          # Check the template status
+          STATUS=$(az resource show \
+            --resource-group "$RESOURCE_GROUP" \
+            --resource-type Microsoft.VirtualMachineImages/imageTemplates \
+            --name "$TEMPLATE_NAME" \
+            --query "properties.lastRunStatus.runState" -o tsv)
+          
+          echo "Current build status: $STATUS"
+          
+          # Optional: Wait for completion (can be commented out if you want async behavior)
+          # while [ "$STATUS" != "Succeeded" ] && [ "$STATUS" != "Failed" ]; do
+          #   echo "Build still in progress... waiting 30 seconds"
+          #   sleep 30
+          #   STATUS=$(az resource show \
+          #     --resource-group "$RESOURCE_GROUP" \
+          #     --resource-type Microsoft.VirtualMachineImages/imageTemplates \
+          #     --name "$TEMPLATE_NAME" \
+          #     --query "properties.lastRunStatus.runState" -o tsv)
+          #   echo "Status: $STATUS"
+          # done
+          
+          if [ "$STATUS" == "Failed" ]; then
+            echo "::error::Image build failed"
+            exit 1
+          fi
+
+      - name: Cleanup Image Template Resources
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          echo "Cleaning up image template staging resources..."
+          
+          # Get Terraform outputs
+          RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+          TEMPLATE_NAME=$(terraform output -raw image_template_resource_name)
+          
+          # Check if template exists before attempting deletion
+          TEMPLATE_EXISTS=$(az resource list \
+            --resource-group "$RESOURCE_GROUP" \
+            --resource-type Microsoft.VirtualMachineImages/imageTemplates \
+            --name "$TEMPLATE_NAME" \
+            --query "[0].id" -o tsv)
+          
+          if [ -n "$TEMPLATE_EXISTS" ]; then
+            echo "Deleting image template '$TEMPLATE_NAME'..."
+            az resource delete \
+              --resource-group "$RESOURCE_GROUP" \
+              --resource-type Microsoft.VirtualMachineImages/imageTemplates \
+              --name "$TEMPLATE_NAME"
+            
+            echo "✓ Image template '$TEMPLATE_NAME' deleted successfully"
+            echo "✓ Staging resources cleaned up"
+            echo "✓ Custom image remains available in the compute gallery"
+          else
+            echo "Image template '$TEMPLATE_NAME' not found. Skipping deletion."
+          fi

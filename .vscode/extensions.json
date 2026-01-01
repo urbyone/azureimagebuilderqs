@@ -1,0 +1,17 @@
+{
+  "recommendations": [
+    // Terraform
+    "hashicorp.terraform",
+    
+    // Azure Extensions
+    "ms-vscode.azure-account",
+    "ms-azuretools.vscode-azureresourcegroups",
+    
+    // Azure DevOps & Pipelines
+    "ms-azure-devops.azure-pipelines",
+    
+    // Additional helpful extensions
+    "ms-vscode.azurecli",
+    "ms-vscode.powershell"
+  ]
+}
