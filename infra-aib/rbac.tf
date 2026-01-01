@@ -1,6 +1,11 @@
+# Generate a unique suffix for the role name
+resource "random_id" "role_suffix" {
+  byte_length = 4
+}
+
 # Custom Role Definition for Azure Image Builder
 resource "azurerm_role_definition" "aib_image_creation" {
-  name        = "Azure Image Builder Service Image Creation Role"
+  name        = "Azure Image Builder Service Image Creation Role-${random_id.role_suffix.hex}"
   scope       = azurerm_resource_group.main.id
   description = "Image Builder access to create resources for the image build"
 

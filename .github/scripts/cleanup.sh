@@ -47,7 +47,7 @@ TFVARS_FILE="infra-aib/variables.auto.tfvars"
 IMAGE_RESOURCE_GROUP=""
 
 if [ -f "$TFVARS_FILE" ]; then
-    IMAGE_RESOURCE_GROUP=$(grep "resource_group_name" "$TFVARS_FILE" | awk -F'=' '{print $2}' | tr -d ' "')
+    IMAGE_RESOURCE_GROUP=$(grep 'resource_group_name' "$TFVARS_FILE" | awk -F '"' '{print $2}')
     echo "Found Image Builder resource group in tfvars: $IMAGE_RESOURCE_GROUP"
 else
     echo "Warning: Could not find $TFVARS_FILE"
@@ -153,11 +153,12 @@ echo ""
 echo "Step 2: Deleting service principal..."
 echo "----------------------------------------"
 
-SP_EXISTS=$(az ad sp show --id $SP_APP_ID --query "appId" -o tsv 2>/dev/null || true)
+# Get the app object ID using the app ID
+APP_OBJECT_ID=$(az ad app show --id "$SP_APP_ID" --query id -o tsv 2>/dev/null || true)
 
-if [ -n "$SP_EXISTS" ]; then
-    az ad sp delete --id $SP_APP_ID
-    echo "✓ Service principal deleted successfully"
+if [ -n "$APP_OBJECT_ID" ]; then
+    az ad app delete --id "$APP_OBJECT_ID"
+    echo "✓ Service principal and app registration deleted successfully"
 else
     echo "Service principal not found (may have been already deleted)"
 fi
