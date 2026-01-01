@@ -38,7 +38,7 @@ APP_ID=$(echo "$SP_OUTPUT" | jq -r '.clientId')
 
 #Assign Storage Blob Contributor role to the service principal for the storage account
 az role assignment create --assignee $APP_ID --role "Storage Blob Data Contributor" --scope /subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${mytfRSG}/providers/Microsoft.Storage/storageAccounts/${accountName}
-az role assignment create --assignee $APP_ID --role "Role Based Access Control Administrator" --scope /subscriptions/${ARM_SUBSCRIPTION_ID}
+az role assignment create --assignee $APP_ID --role "Owner" --scope /subscriptions/${ARM_SUBSCRIPTION_ID}
 
 #########
 #OUTPUTS#
