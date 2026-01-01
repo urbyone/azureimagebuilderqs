@@ -32,13 +32,12 @@ az storage container create --name "tfstate" --account-name $accountName
 #Create a service principal for GitHub Actions Image Builder#
 #############################################################
 appName="GitHubActions-imagebuilder-$(date +%s)"
-SP_OUTPUT=$(az ad sp create-for-rbac --name $appName --role Contributor --scopes /subscriptions/${ARM_SUBSCRIPTION_ID} --json-auth)
+SP_OUTPUT=$(az ad sp create-for-rbac --name $appName --role Owner --scopes /subscriptions/${ARM_SUBSCRIPTION_ID} --json-auth)
 # Extract appId from the service principal output
 APP_ID=$(echo "$SP_OUTPUT" | jq -r '.clientId')
 
 #Assign Storage Blob Contributor role to the service principal for the storage account
 az role assignment create --assignee $APP_ID --role "Storage Blob Data Contributor" --scope /subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${mytfRSG}/providers/Microsoft.Storage/storageAccounts/${accountName}
-az role assignment create --assignee $APP_ID --role "Owner" --scope /subscriptions/${ARM_SUBSCRIPTION_ID}
 
 #########
 #OUTPUTS#
