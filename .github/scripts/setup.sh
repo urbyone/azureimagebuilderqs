@@ -1,4 +1,5 @@
-az login --use-device-code
+# If you are not mounting .azure from local:
+# az login --use-device-code
 # az account set --subscription "your-subscription-id-or-name" or pick your subscription from the list on login.
 
 # Check if ARM_SUBSCRIPTION_ID and ARM_TENANT_ID are set
