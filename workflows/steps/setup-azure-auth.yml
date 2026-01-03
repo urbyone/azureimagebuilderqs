@@ -1,0 +1,31 @@
+name: Setup Azure Authentication for Terraform
+description: Extract and set Azure authentication environment variables for Terraform
+
+inputs:
+  azure_credentials:
+    description: 'Azure credentials JSON'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Azure Authentication for Terraform
+      shell: bash
+      run: |
+        echo "Setting up Azure authentication environment variables for Terraform..."
+        
+        # Extract credentials from AZURE_CREDENTIALS JSON
+        CLIENT_ID=$(echo '${{ inputs.azure_credentials }}' | jq -r '.clientId')
+        CLIENT_SECRET=$(echo '${{ inputs.azure_credentials }}' | jq -r '.clientSecret')
+        TENANT_ID=$(echo '${{ inputs.azure_credentials }}' | jq -r '.tenantId')
+        SUBSCRIPTION_ID=$(echo '${{ inputs.azure_credentials }}' | jq -r '.subscriptionId')
+        
+        echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
+        echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
+        echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
+        echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
+        
+        echo "✓ Azure authentication variables configured"
+        echo "  Client ID: $CLIENT_ID"
+        echo "  Tenant ID: $TENANT_ID"
+        echo "  Subscription ID: $SUBSCRIPTION_ID"

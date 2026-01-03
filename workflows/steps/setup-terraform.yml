@@ -1,0 +1,20 @@
+name: Setup Terraform
+description: Install and configure Terraform
+
+inputs:
+  terraform_version:
+    description: 'Terraform version to install'
+    required: true
+  terraform_wrapper:
+    description: 'Enable Terraform wrapper'
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform_version }}
+        terraform_wrapper: ${{ inputs.terraform_wrapper }}

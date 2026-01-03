@@ -1,0 +1,15 @@
+name: Terraform Plan
+description: Create Terraform execution plan
+
+inputs:
+  working_directory:
+    description: 'Working directory for Terraform'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Terraform Plan
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: terraform plan -out=tfplan

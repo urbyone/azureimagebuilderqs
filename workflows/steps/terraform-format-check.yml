@@ -1,0 +1,15 @@
+name: Terraform Format Check
+description: Check Terraform code formatting
+
+inputs:
+  working_directory:
+    description: 'Working directory for Terraform'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Terraform Format Check
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: terraform fmt -check -recursive
