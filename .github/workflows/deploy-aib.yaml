@@ -103,7 +103,7 @@ jobs:
           resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
           storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
           container_name: ${{ vars.TF_STATE_CONTAINER }}
-          state_key: ${{ vars.TF_STATE_KEY }}
+          state_key: ${{ vars.TF_STATE_KEY_AIB }}
 
       - name: Terraform Validate
         uses: ./.github/workflows/steps/terraform-validate
@@ -145,7 +145,7 @@ jobs:
           resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
           storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
           container_name: ${{ vars.TF_STATE_CONTAINER }}
-          state_key: ${{ vars.TF_STATE_KEY }}
+          state_key: ${{ vars.TF_STATE_KEY_AIB }}
 
       - name: Terraform Plan
         uses: ./.github/workflows/steps/terraform-plan
@@ -197,7 +197,7 @@ jobs:
           resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
           storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
           container_name: ${{ vars.TF_STATE_CONTAINER }}
-          state_key: ${{ vars.TF_STATE_KEY }}
+          state_key: ${{ vars.TF_STATE_KEY_AIB }}
 
       - name: Terraform Apply
         uses: ./.github/workflows/steps/terraform-apply
