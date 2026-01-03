@@ -5,6 +5,8 @@ trigger:
   paths:
     include:
       - infra-aib/**
+    exclude:
+      - infra-aib/.terraform.lock.hcl
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -15,6 +17,8 @@ variables:
     value: '1.14.3'
   - name: workingDirectory
     value: '$(System.DefaultWorkingDirectory)/infra-aib'
+  - name: serviceConnection
+    value: 'sp-ado-cuadmproj-containers'  
 
 stages:
   - stage: CheckProviders
@@ -26,7 +30,7 @@ stages:
           - task: AzureCLI@2
             displayName: 'Check Azure Provider Registration Status'
             inputs:
-              azureSubscription: 'sp-ado-cuadmproj-containers'
+              azureSubscription: '$(serviceConnection)'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               inlineScript: |
@@ -90,7 +94,7 @@ stages:
           - task: AzureCLI@2
             displayName: 'Setup Azure Authentication for Terraform'
             inputs:
-              azureSubscription: 'sp-ado-cuadmproj-containers'
+              azureSubscription: '$(serviceConnection)'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               addSpnToEnvironment: true
@@ -171,7 +175,7 @@ stages:
           - task: AzureCLI@2
             displayName: 'Setup Azure Authentication for Terraform'
             inputs:
-              azureSubscription: 'sp-ado-cuadmproj-containers'
+              azureSubscription: '$(serviceConnection)'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               addSpnToEnvironment: true
@@ -252,7 +256,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: 'Setup Azure Authentication for Terraform'
                   inputs:
-                    azureSubscription: 'sp-ado-cuadmproj-containers'
+                    azureSubscription: '$(serviceConnection)'
                     scriptType: 'bash'
                     scriptLocation: 'inlineScript'
                     addSpnToEnvironment: true
@@ -312,7 +316,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: 'Create Image Template'
                   inputs:
-                    azureSubscription: 'sp-ado-cuadmproj-containers'
+                    azureSubscription: '$(serviceConnection)'
                     scriptType: 'bash'
                     scriptLocation: 'inlineScript'
                     workingDirectory: $(workingDirectory)
@@ -337,7 +341,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: 'Build Custom Image'
                   inputs:
-                    azureSubscription: 'sp-ado-cuadmproj-containers'
+                    azureSubscription: '$(serviceConnection)'
                     scriptType: 'bash'
                     scriptLocation: 'inlineScript'
                     workingDirectory: $(workingDirectory)
@@ -361,7 +365,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: 'Check Image Build Status'
                   inputs:
-                    azureSubscription: 'sp-ado-cuadmproj-containers'
+                    azureSubscription: '$(serviceConnection)'
                     scriptType: 'bash'
                     scriptLocation: 'inlineScript'
                     workingDirectory: $(workingDirectory)
@@ -401,7 +405,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: 'Cleanup Image Template Resources'
                   inputs:
-                    azureSubscription: 'sp-ado-cuadmproj-containers'
+                    azureSubscription: '$(serviceConnection)'
                     scriptType: 'bash'
                     scriptLocation: 'inlineScript'
                     workingDirectory: $(workingDirectory)
