@@ -1,0 +1,45 @@
+parameters:
+  - name: serviceConnection
+    type: string
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Setup Packer Environment Variables'
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnection }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        # Convert location to display name for replication regions
+        case "$(location)" in
+          "uksouth") REPLICATION_REGION="UK South" ;;
+          "ukwest") REPLICATION_REGION="UK West" ;;
+          "eastus") REPLICATION_REGION="East US" ;;
+          "eastus2") REPLICATION_REGION="East US 2" ;;
+          "westus") REPLICATION_REGION="West US" ;;
+          "westus2") REPLICATION_REGION="West US 2" ;;
+          "centralus") REPLICATION_REGION="Central US" ;;
+          "northeurope") REPLICATION_REGION="North Europe" ;;
+          "westeurope") REPLICATION_REGION="West Europe" ;;
+          *) REPLICATION_REGION="UK South" ;;
+        esac
+        
+        # Export Packer environment variables as pipeline variables
+        echo "##vso[task.setvariable variable=PKR_VAR_subscription_id]$(subscriptionId)"
+        echo "##vso[task.setvariable variable=PKR_VAR_resource_group_name]$(resourceGroupName)"
+        echo "##vso[task.setvariable variable=PKR_VAR_location]$(location)"
+        echo "##vso[task.setvariable variable=PKR_VAR_replication_region]$REPLICATION_REGION"
+        echo "##vso[task.setvariable variable=PKR_VAR_managed_identity_client_id]$(managedIdentityClientId)"
+        echo "##vso[task.setvariable variable=PKR_VAR_managed_identity_id]$(managedIdentityId)"
+        echo "##vso[task.setvariable variable=PKR_VAR_gallery_name]$(galleryName)"
+        echo "##vso[task.setvariable variable=PKR_VAR_image_definition_name]$(imageDefinitionName)"
+        echo "##vso[task.setvariable variable=PKR_VAR_source_image_publisher]$(sourceImagePublisher)"
+        echo "##vso[task.setvariable variable=PKR_VAR_source_image_offer]$(sourceImageOffer)"
+        echo "##vso[task.setvariable variable=PKR_VAR_source_image_sku]$(sourceImageSku)"
+        echo "##vso[task.setvariable variable=PKR_VAR_image_version]$(imageVersion)"
+        echo "##vso[task.setvariable variable=PKR_VAR_vm_size]Standard_D2s_v3"
+        echo "##vso[task.setvariable variable=PKR_VAR_os_disk_size_gb]127"
+        
+        echo "✓ Packer environment variables configured"
+        echo "  Replication Region: $REPLICATION_REGION"
+        echo "  Image Version: $(imageVersion)"

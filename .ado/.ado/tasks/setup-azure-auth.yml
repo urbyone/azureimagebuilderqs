@@ -1,0 +1,26 @@
+parameters:
+  - name: serviceConnection
+    type: string
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Setup Azure Authentication for Terraform'
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnection }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      addSpnToEnvironment: true
+      inlineScript: |
+        echo "Setting up Azure authentication environment variables for Terraform OIDC..."
+        
+        # Export service principal details as environment variables
+        echo "##vso[task.setvariable variable=ARM_CLIENT_ID;issecret=false]$servicePrincipalId"
+        echo "##vso[task.setvariable variable=ARM_TENANT_ID;issecret=false]$tenantId"
+        echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;issecret=false]$(az account show --query id -o tsv)"
+        echo "##vso[task.setvariable variable=ARM_USE_OIDC;issecret=false]true"
+        echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN;issecret=true]$idToken"
+        
+        echo "✓ Azure authentication variables configured"
+        echo "  Client ID: $servicePrincipalId"
+        echo "  Tenant ID: $tenantId"
+        echo "  Subscription ID: $(az account show --query id -o tsv)"

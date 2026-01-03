@@ -1,0 +1,24 @@
+parameters:
+  - name: workingDirectory
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: commandOptions
+    type: string
+    default: '-auto-approve'
+
+steps:
+  - task: TerraformTask@5
+    displayName: 'Terraform Apply'
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: ${{ parameters.workingDirectory }}
+      commandOptions: ${{ parameters.commandOptions }}
+      environmentServiceNameAzureRM: ${{ parameters.serviceConnection }}
+    env:
+      ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+      ARM_TENANT_ID: $(ARM_TENANT_ID)
+      ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+      ARM_USE_OIDC: $(ARM_USE_OIDC)
+      ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)

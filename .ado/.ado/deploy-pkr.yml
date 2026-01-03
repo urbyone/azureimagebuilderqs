@@ -1,0 +1,228 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - pkr/**
+      - infra-pkr/**
+    exclude:
+      - infra-aib/.terraform.lock.hcl
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: terraform-state-config-packer
+  - name: terraformVersion
+    value: '1.14.3'
+  - name: packerVersion
+    value: '1.14.3'
+  - name: serviceConnection
+    value: 'sp-ado-cuadmproj-containers'  
+  - name: terraformWorkingDirectory
+    value: '$(System.DefaultWorkingDirectory)/infra-pkr'
+  - name: packerWorkingDirectory
+    value: '$(System.DefaultWorkingDirectory)/pkr'
+  - name: imageVersion
+    value: '1.0.$(Build.BuildId)'
+  - name: ado-environment
+    value: 'labs'
+
+stages:
+  - stage: TerraformPlan
+    displayName: 'Terraform Plan'
+    jobs:
+      - job: TerraformPlanJob
+        displayName: 'Terraform Validate and Plan'
+        steps:
+          - template: tasks/install-terraform.yml
+            parameters:
+              terraformVersion: $(terraformVersion)
+          
+          - template: tasks/setup-azure-auth.yml
+            parameters:
+              serviceConnection: $(serviceConnection)
+
+          - template: tasks/terraform-init.yml
+            parameters:
+              workingDirectory: $(terraformWorkingDirectory)
+              serviceConnection: $(serviceConnection)
+              tfStateResourceGroup: $(tfStateResourceGroup)
+              tfStateStorageAccount: $(tfStateStorageAccount)
+              tfStateContainer: $(tfStateContainer)
+              tfStateKey: $(tfStateKey)
+
+          - template: tasks/terraform-format-check.yml
+            parameters:
+              workingDirectory: $(terraformWorkingDirectory)
+              serviceConnection: $(serviceConnection)
+
+          - template: tasks/terraform-validate.yml
+            parameters:
+              workingDirectory: $(terraformWorkingDirectory)
+
+          - template: tasks/terraform-plan.yml
+            parameters:
+              workingDirectory: $(terraformWorkingDirectory)
+              serviceConnection: $(serviceConnection)
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Terraform Plan'
+            inputs:
+              targetPath: '$(terraformWorkingDirectory)/tfplan'
+              artifact: 'terraform-plan'
+              publishLocation: 'pipeline'
+
+  - stage: TerraformApply
+    displayName: 'Terraform Apply and Build Image'
+    dependsOn: TerraformPlan
+    jobs:
+      - deployment: ApplyandBuildImage
+        displayName: 'Apply Terraform and Build Packer Image'
+        environment: $(ado-environment)
+        timeoutInMinutes: 180
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - template: tasks/install-terraform.yml
+                  parameters:
+                    terraformVersion: $(terraformVersion)
+
+                - template: tasks/setup-azure-auth.yml
+                  parameters:
+                    serviceConnection: $(serviceConnection)
+
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download Terraform Plan'
+                  inputs:
+                    artifactName: 'terraform-plan'
+                    targetPath: '$(terraformWorkingDirectory)'
+
+                - template: tasks/terraform-init.yml
+                  parameters:
+                    workingDirectory: $(terraformWorkingDirectory)
+                    serviceConnection: $(serviceConnection)
+                    tfStateResourceGroup: $(tfStateResourceGroup)
+                    tfStateStorageAccount: $(tfStateStorageAccount)
+                    tfStateContainer: $(tfStateContainer)
+                    tfStateKey: $(tfStateKey)
+
+                - template: tasks/terraform-apply.yml
+                  parameters:
+                    workingDirectory: $(terraformWorkingDirectory)
+                    serviceConnection: $(serviceConnection)
+                    commandOptions: '-auto-approve tfplan'
+
+                - task: AzureCLI@2
+                  displayName: 'Export Terraform Outputs'
+                  name: 'TerraformOutputs'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      cd $(terraformWorkingDirectory)
+                      
+                      # Export outputs as task variables
+                      echo "##vso[task.setvariable variable=subscriptionId]$(terraform output -raw subscription_id)"
+                      echo "##vso[task.setvariable variable=resourceGroupName]$(terraform output -raw resource_group_name)"
+                      echo "##vso[task.setvariable variable=location]$(terraform output -raw location)"
+                      echo "##vso[task.setvariable variable=managedIdentityClientId]$(terraform output -raw managed_identity_client_id)"
+                      echo "##vso[task.setvariable variable=managedIdentityId]$(terraform output -raw managed_identity_id)"
+                      echo "##vso[task.setvariable variable=galleryName]$(terraform output -raw gallery_name)"
+                      echo "##vso[task.setvariable variable=imageDefinitionName]$(terraform output -raw image_definition_name)"
+                      echo "##vso[task.setvariable variable=sourceImagePublisher]$(terraform output -raw source_image_publisher)"
+                      echo "##vso[task.setvariable variable=sourceImageOffer]$(terraform output -raw source_image_offer)"
+                      echo "##vso[task.setvariable variable=sourceImageSku]$(terraform output -raw source_image_sku)"
+
+                - template: tasks/install-packer.yml
+                  parameters:
+                    packerVersion: $(packerVersion)
+
+                - task: AzureCLI@2
+                  displayName: 'Packer Init'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      cd $(packerWorkingDirectory)
+                      packer init windows-2022.pkr.hcl
+
+                - template: tasks/setup-packer-env.yml
+                  parameters:
+                    serviceConnection: $(serviceConnection)
+
+                - task: AzureCLI@2
+                  displayName: 'Packer Validate'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      cd $(packerWorkingDirectory)
+                      
+                      # Export Packer environment variables
+                      export PKR_VAR_subscription_id="$(PKR_VAR_subscription_id)"
+                      export PKR_VAR_resource_group_name="$(PKR_VAR_resource_group_name)"
+                      export PKR_VAR_location="$(PKR_VAR_location)"
+                      export PKR_VAR_replication_region="$(PKR_VAR_replication_region)"
+                      export PKR_VAR_managed_identity_client_id="$(PKR_VAR_managed_identity_client_id)"
+                      export PKR_VAR_managed_identity_id="$(PKR_VAR_managed_identity_id)"
+                      export PKR_VAR_gallery_name="$(PKR_VAR_gallery_name)"
+                      export PKR_VAR_image_definition_name="$(PKR_VAR_image_definition_name)"
+                      export PKR_VAR_source_image_publisher="$(PKR_VAR_source_image_publisher)"
+                      export PKR_VAR_source_image_offer="$(PKR_VAR_source_image_offer)"
+                      export PKR_VAR_source_image_sku="$(PKR_VAR_source_image_sku)"
+                      export PKR_VAR_image_version="$(PKR_VAR_image_version)"
+                      export PKR_VAR_vm_size="$(PKR_VAR_vm_size)"
+                      export PKR_VAR_os_disk_size_gb="$(PKR_VAR_os_disk_size_gb)"
+                      
+                      packer validate windows-2022.pkr.hcl
+
+                - task: AzureCLI@2
+                  displayName: 'Packer Build'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      cd $(packerWorkingDirectory)
+                      
+                      # Export Packer environment variables
+                      export PKR_VAR_subscription_id="$(PKR_VAR_subscription_id)"
+                      export PKR_VAR_resource_group_name="$(PKR_VAR_resource_group_name)"
+                      export PKR_VAR_location="$(PKR_VAR_location)"
+                      export PKR_VAR_replication_region="$(PKR_VAR_replication_region)"
+                      export PKR_VAR_managed_identity_client_id="$(PKR_VAR_managed_identity_client_id)"
+                      export PKR_VAR_managed_identity_id="$(PKR_VAR_managed_identity_id)"
+                      export PKR_VAR_gallery_name="$(PKR_VAR_gallery_name)"
+                      export PKR_VAR_image_definition_name="$(PKR_VAR_image_definition_name)"
+                      export PKR_VAR_source_image_publisher="$(PKR_VAR_source_image_publisher)"
+                      export PKR_VAR_source_image_offer="$(PKR_VAR_source_image_offer)"
+                      export PKR_VAR_source_image_sku="$(PKR_VAR_source_image_sku)"
+                      export PKR_VAR_image_version="$(PKR_VAR_image_version)"
+                      export PKR_VAR_vm_size="$(PKR_VAR_vm_size)"
+                      export PKR_VAR_os_disk_size_gb="$(PKR_VAR_os_disk_size_gb)"
+                      
+                      echo "Building image version: $(imageVersion)"
+                      packer build windows-2022.pkr.hcl
+
+                - task: AzureCLI@2
+                  displayName: 'Display Build Summary'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      echo "========================================="
+                      echo "Packer Image Build Completed!"
+                      echo "========================================="
+                      echo "Image Version: $(imageVersion)"
+                      echo "Gallery: $(galleryName)"
+                      echo "Image Definition: $(imageDefinitionName)"
+                      echo "Resource Group: $(resourceGroupName)"
+                      echo "========================================="

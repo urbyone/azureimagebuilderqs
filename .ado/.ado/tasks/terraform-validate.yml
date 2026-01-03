@@ -1,0 +1,17 @@
+parameters:
+  - name: workingDirectory
+    type: string
+
+steps:
+  - task: TerraformTask@5
+    displayName: 'Terraform Validate'
+    inputs:
+      provider: 'azurerm'
+      command: 'validate'
+      workingDirectory: ${{ parameters.workingDirectory }}
+    env:
+      ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+      ARM_TENANT_ID: $(ARM_TENANT_ID)
+      ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+      ARM_USE_OIDC: $(ARM_USE_OIDC)
+      ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)

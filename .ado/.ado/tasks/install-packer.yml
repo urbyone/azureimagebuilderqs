@@ -1,0 +1,21 @@
+parameters:
+  - name: packerVersion
+    type: string
+    default: '1.14.3'
+
+steps:
+  - bash: |
+      echo "Installing Packer..."
+      
+      # Download and install Packer
+      PACKER_VERSION=${{ parameters.packerVersion }}
+      wget -q https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
+      unzip -o packer_${PACKER_VERSION}_linux_amd64.zip
+      sudo mv packer /usr/local/bin/
+      sudo chmod +x /usr/local/bin/packer
+      
+      # Verify installation
+      packer version
+      
+      echo "✓ Packer installed successfully"
+    displayName: 'Install Packer'

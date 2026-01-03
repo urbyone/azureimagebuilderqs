@@ -1,0 +1,22 @@
+parameters:
+  - name: workingDirectory
+    type: string
+  - name: serviceConnection
+    type: string
+
+steps:
+  - task: TerraformTask@5
+    displayName: 'Terraform Format Check'
+    inputs:
+      provider: 'azurerm'
+      command: 'custom'
+      customCommand: 'fmt'
+      commandOptions: '-check -recursive'
+      workingDirectory: ${{ parameters.workingDirectory }}
+      environmentServiceNameAzureRM: ${{ parameters.serviceConnection }}
+    env:
+      ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+      ARM_TENANT_ID: $(ARM_TENANT_ID)
+      ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+      ARM_USE_OIDC: $(ARM_USE_OIDC)
+      ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
