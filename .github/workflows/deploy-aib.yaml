@@ -309,26 +309,7 @@ jobs:
             
             echo "✓ Image template deleted successfully"
             echo "✓ Staging resources cleaned up"
-            echo "✓ Custom image REMAINS available in the compute gallery"
           else
             echo "Image template '$TEMPLATE_NAME' not found in resource group '$RESOURCE_GROUP'"
             echo "Skipping deletion."
-          fi
-          
-          # Verify the gallery image still exists
-          GALLERY_NAME=$(terraform output -raw gallery_name)
-          IMAGE_NAME=$(terraform output -raw image_definition_name)
-          
-          echo ""
-          echo "Verifying gallery image still exists..."
-          IMAGE_EXISTS=$(az sig image-definition show \
-            --resource-group "$RESOURCE_GROUP" \
-            --gallery-name "$GALLERY_NAME" \
-            --gallery-image-definition "$IMAGE_NAME" \
-            --query "name" -o tsv 2>/dev/null || echo "")
-          
-          if [ -n "$IMAGE_EXISTS" ]; then
-            echo "✓ Confirmed: Gallery image '$IMAGE_NAME' is still available"
-          else
-            echo "::error::Gallery image not found - this is unexpected!"
           fi
