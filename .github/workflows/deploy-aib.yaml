@@ -82,51 +82,38 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: ./.github/workflows/steps/setup-terraform
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: ./.github/workflows/steps/azure-login
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup Azure Authentication for Terraform
-        run: |
-          echo "Setting up Azure authentication environment variables for Terraform..."
-          
-          # Extract credentials from AZURE_CREDENTIALS JSON
-          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId')
-          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret')
-          TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId')
-          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
-          
-          echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
-          echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
-          
-          echo "✓ Azure authentication variables configured"
-          echo "  Client ID: $CLIENT_ID"
-          echo "  Tenant ID: $TENANT_ID"
-          echo "  Subscription ID: $SUBSCRIPTION_ID"
+      - name: Setup Azure Authentication
+        uses: ./.github/workflows/steps/setup-azure-auth
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Terraform Init
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+        uses: ./.github/workflows/steps/terraform-init
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
+          resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          container_name: ${{ vars.TF_STATE_CONTAINER }}
+          state_key: ${{ vars.TF_STATE_KEY }}
 
       - name: Terraform Validate
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: terraform validate
+        uses: ./.github/workflows/steps/terraform-validate
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
 
       - name: Terraform Format Check
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: terraform fmt -check -recursive
+        uses: ./.github/workflows/steps/terraform-format-check
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
 
   plan:
     name: Plan Infrastructure
@@ -137,47 +124,33 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: ./.github/workflows/steps/setup-terraform
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: ./.github/workflows/steps/azure-login
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup Azure Authentication for Terraform
-        run: |
-          echo "Setting up Azure authentication environment variables for Terraform..."
-          
-          # Extract credentials from AZURE_CREDENTIALS JSON
-          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId')
-          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret')
-          TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId')
-          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
-          
-          echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
-          echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
-          
-          echo "✓ Azure authentication variables configured"
-          echo "  Client ID: $CLIENT_ID"
-          echo "  Tenant ID: $TENANT_ID"
-          echo "  Subscription ID: $SUBSCRIPTION_ID"
+      - name: Setup Azure Authentication
+        uses: ./.github/workflows/steps/setup-azure-auth
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Terraform Init
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+        uses: ./.github/workflows/steps/terraform-init
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
+          resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          container_name: ${{ vars.TF_STATE_CONTAINER }}
+          state_key: ${{ vars.TF_STATE_KEY }}
 
       - name: Terraform Plan
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: terraform plan -out=tfplan
+        uses: ./.github/workflows/steps/terraform-plan
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
@@ -197,53 +170,39 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: ./.github/workflows/steps/setup-terraform
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
-          terraform_wrapper: false
+          terraform_wrapper: 'false'
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: ./.github/workflows/steps/azure-login
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup Azure Authentication for Terraform
+      - name: Setup Azure Authentication
+        uses: ./.github/workflows/steps/setup-azure-auth
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Verify Azure CLI
         run: |
-          echo "Setting up Azure authentication environment variables for Terraform..."
-          
-          # Extract credentials from AZURE_CREDENTIALS JSON
-          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId')
-          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret')
-          TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId')
-          SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId')
-          
-          echo "ARM_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
-          echo "ARM_CLIENT_SECRET=$CLIENT_SECRET" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=$TENANT_ID" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID" >> $GITHUB_ENV
-          
-          echo "✓ Azure authentication variables configured"
-          echo "  Client ID: $CLIENT_ID"
-          echo "  Tenant ID: $TENANT_ID"
-          echo "  Subscription ID: $SUBSCRIPTION_ID"
-          
-          # Verify Azure CLI is working
-          echo ""
           echo "Azure CLI Version:"
           az --version
 
       - name: Terraform Init
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+        uses: ./.github/workflows/steps/terraform-init
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
+          resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          container_name: ${{ vars.TF_STATE_CONTAINER }}
+          state_key: ${{ vars.TF_STATE_KEY }}
 
       - name: Terraform Apply
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: terraform apply -auto-approve
+        uses: ./.github/workflows/steps/terraform-apply
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
 
       - name: Create Image Template
         working-directory: ${{ env.WORKING_DIRECTORY }}
