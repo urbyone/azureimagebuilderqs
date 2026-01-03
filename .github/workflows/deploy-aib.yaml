@@ -282,28 +282,53 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           echo "Cleaning up image template staging resources..."
+          echo "WARNING: This will ONLY delete the template resource, NOT the custom image in the gallery"
           
           # Get Terraform outputs
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
           TEMPLATE_NAME=$(terraform output -raw image_template_resource_name)
           
-          # Check if template exists before attempting deletion
-          TEMPLATE_EXISTS=$(az resource list \
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "Template Name: $TEMPLATE_NAME"
+          
+          # Check if template exists
+          TEMPLATE_ID=$(az resource show \
             --resource-group "$RESOURCE_GROUP" \
             --resource-type Microsoft.VirtualMachineImages/imageTemplates \
             --name "$TEMPLATE_NAME" \
-            --query "[0].id" -o tsv)
+            --query "id" -o tsv 2>/dev/null || echo "")
           
-          if [ -n "$TEMPLATE_EXISTS" ]; then
-            echo "Deleting image template '$TEMPLATE_NAME'..."
-            az resource delete \
-              --resource-group "$RESOURCE_GROUP" \
-              --resource-type Microsoft.VirtualMachineImages/imageTemplates \
-              --name "$TEMPLATE_NAME"
+          if [ -n "$TEMPLATE_ID" ]; then
+            echo "Found image template: $TEMPLATE_ID"
+            echo "Deleting ONLY the image template resource (not the gallery image)..."
             
-            echo "✓ Image template '$TEMPLATE_NAME' deleted successfully"
+            # Delete only the template resource - this does NOT delete the gallery image
+            az resource delete \
+              --ids "$TEMPLATE_ID" \
+              --verbose
+            
+            echo "✓ Image template deleted successfully"
             echo "✓ Staging resources cleaned up"
-            echo "✓ Custom image remains available in the compute gallery"
+            echo "✓ Custom image REMAINS available in the compute gallery"
           else
-            echo "Image template '$TEMPLATE_NAME' not found. Skipping deletion."
+            echo "Image template '$TEMPLATE_NAME' not found in resource group '$RESOURCE_GROUP'"
+            echo "Skipping deletion."
+          fi
+          
+          # Verify the gallery image still exists
+          GALLERY_NAME=$(terraform output -raw gallery_name)
+          IMAGE_NAME=$(terraform output -raw image_definition_name)
+          
+          echo ""
+          echo "Verifying gallery image still exists..."
+          IMAGE_EXISTS=$(az sig image-definition show \
+            --resource-group "$RESOURCE_GROUP" \
+            --gallery-name "$GALLERY_NAME" \
+            --gallery-image-definition "$IMAGE_NAME" \
+            --query "name" -o tsv 2>/dev/null || echo "")
+          
+          if [ -n "$IMAGE_EXISTS" ]; then
+            echo "✓ Confirmed: Gallery image '$IMAGE_NAME' is still available"
+          else
+            echo "::error::Gallery image not found - this is unexpected!"
           fi
