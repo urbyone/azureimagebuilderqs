@@ -12,13 +12,15 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: terraform-state-config
+  - group: terraform-state-config-aib
   - name: terraformVersion
     value: '1.14.3'
   - name: workingDirectory
     value: '$(System.DefaultWorkingDirectory)/infra-aib'
   - name: serviceConnection
-    value: 'sp-ado-cuadmproj-containers'  
+    value: 'sp-ado-cuadmproj-containers'
+  - name: ado-environment
+    value: 'labs'
 
 stages:
   - stage: CheckProviders
@@ -86,79 +88,31 @@ stages:
       - job: ValidateTerraform
         displayName: 'Terraform Validate'
         steps:
-          - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
-            displayName: 'Install Terraform'
-            inputs:
+          - template: tasks/install-terraform.yml
+            parameters:
               terraformVersion: $(terraformVersion)
 
-          - task: AzureCLI@2
-            displayName: 'Setup Azure Authentication for Terraform'
-            inputs:
-              azureSubscription: '$(serviceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              addSpnToEnvironment: true
-              inlineScript: |
-                echo "Setting up Azure authentication environment variables for Terraform OIDC..."
-                
-                # Export service principal details as environment variables
-                echo "##vso[task.setvariable variable=ARM_CLIENT_ID;issecret=false]$servicePrincipalId"
-                echo "##vso[task.setvariable variable=ARM_TENANT_ID;issecret=false]$tenantId"
-                echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;issecret=false]$(az account show --query id -o tsv)"
-                echo "##vso[task.setvariable variable=ARM_USE_OIDC;issecret=false]true"
-                echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN;issecret=true]$idToken"
-                
-                echo "✓ Azure authentication variables configured"
-                echo "  Client ID: $servicePrincipalId"
-                echo "  Tenant ID: $tenantId"
-                echo "  Subscription ID: $(az account show --query id -o tsv)"
+          - template: tasks/setup-azure-auth.yml
+            parameters:
+              serviceConnection: $(serviceConnection)
 
-          - task: TerraformTask@5
-            displayName: 'Terraform Init'
-            inputs:
-              provider: 'azurerm'
-              command: 'init'
+          - template: tasks/terraform-init.yml
+            parameters:
               workingDirectory: $(workingDirectory)
-              backendServiceArm: 'sp-ado-cuadmproj-containers'
-              backendAzureRmResourceGroupName: $(tfStateResourceGroup)
-              backendAzureRmStorageAccountName: $(tfStateStorageAccount)
-              backendAzureRmContainerName: $(tfStateContainer)
-              backendAzureRmKey: $(tfStateKey)
-            env:
-              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-              ARM_TENANT_ID: $(ARM_TENANT_ID)
-              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-              ARM_USE_OIDC: $(ARM_USE_OIDC)
-              ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
+              serviceConnection: $(serviceConnection)
+              tfStateResourceGroup: $(tfStateResourceGroup)
+              tfStateStorageAccount: $(tfStateStorageAccount)
+              tfStateContainer: $(tfStateContainer)
+              tfStateKey: $(tfStateKey)
 
-          - task: TerraformTask@5
-            displayName: 'Terraform Validate'
-            inputs:
-              provider: 'azurerm'
-              command: 'validate'
+          - template: tasks/terraform-validate.yml
+            parameters:
               workingDirectory: $(workingDirectory)
-            env:
-              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-              ARM_TENANT_ID: $(ARM_TENANT_ID)
-              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-              ARM_USE_OIDC: $(ARM_USE_OIDC)
-              ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
 
-          - task: TerraformTask@5
-            displayName: 'Terraform Format Check'
-            inputs:
-              provider: 'azurerm'
-              command: 'custom'
-              customCommand: 'fmt'
-              commandOptions: '-check -recursive'
+          - template: tasks/terraform-format-check.yml
+            parameters:
               workingDirectory: $(workingDirectory)
-              environmentServiceNameAzureRM: 'sp-ado-cuadmproj-containers'
-            env:
-              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-              ARM_TENANT_ID: $(ARM_TENANT_ID)
-              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-              ARM_USE_OIDC: $(ARM_USE_OIDC)
-              ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
+              serviceConnection: $(serviceConnection)
 
   - stage: Plan
     displayName: 'Plan Infrastructure'
@@ -167,65 +121,28 @@ stages:
       - job: TerraformPlan
         displayName: 'Terraform Plan'
         steps:
-          - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
-            displayName: 'Install Terraform'
-            inputs:
+          - template: tasks/install-terraform.yml
+            parameters:
               terraformVersion: $(terraformVersion)
 
-          - task: AzureCLI@2
-            displayName: 'Setup Azure Authentication for Terraform'
-            inputs:
-              azureSubscription: '$(serviceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              addSpnToEnvironment: true
-              inlineScript: |
-                echo "Setting up Azure authentication environment variables for Terraform OIDC..."
-                
-                # Export service principal details as environment variables
-                echo "##vso[task.setvariable variable=ARM_CLIENT_ID;issecret=false]$servicePrincipalId"
-                echo "##vso[task.setvariable variable=ARM_TENANT_ID;issecret=false]$tenantId"
-                echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;issecret=false]$(az account show --query id -o tsv)"
-                echo "##vso[task.setvariable variable=ARM_USE_OIDC;issecret=false]true"
-                echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN;issecret=true]$idToken"
-                
-                echo "✓ Azure authentication variables configured"
-                echo "  Client ID: $servicePrincipalId"
-                echo "  Tenant ID: $tenantId"
-                echo "  Subscription ID: $(az account show --query id -o tsv)"
+          - template: tasks/setup-azure-auth.yml
+            parameters:
+              serviceConnection: $(serviceConnection)
 
-          - task: TerraformTask@5
-            displayName: 'Terraform Init'
-            inputs:
-              provider: 'azurerm'
-              command: 'init'
+          - template: tasks/terraform-init.yml
+            parameters:
               workingDirectory: $(workingDirectory)
-              backendServiceArm: 'sp-ado-cuadmproj-containers'
-              backendAzureRmResourceGroupName: $(tfStateResourceGroup)
-              backendAzureRmStorageAccountName: $(tfStateStorageAccount)
-              backendAzureRmContainerName: $(tfStateContainer)
-              backendAzureRmKey: $(tfStateKey)
-            env:
-              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-              ARM_TENANT_ID: $(ARM_TENANT_ID)
-              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-              ARM_USE_OIDC: $(ARM_USE_OIDC)
-              ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
+              serviceConnection: $(serviceConnection)
+              tfStateResourceGroup: $(tfStateResourceGroup)
+              tfStateStorageAccount: $(tfStateStorageAccount)
+              tfStateContainer: $(tfStateContainer)
+              tfStateKey: $(tfStateKey)
 
-          - task: TerraformTask@5
-            displayName: 'Terraform Plan'
-            inputs:
-              provider: 'azurerm'
-              command: 'plan'
+          - template: tasks/terraform-plan.yml
+            parameters:
               workingDirectory: $(workingDirectory)
+              serviceConnection: $(serviceConnection)
               commandOptions: '-out=tfplan'
-              environmentServiceNameAzureRM: 'sp-ado-cuadmproj-containers'
-            env:
-              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-              ARM_TENANT_ID: $(ARM_TENANT_ID)
-              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-              ARM_USE_OIDC: $(ARM_USE_OIDC)
-              ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
 
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Plan Artifact'
@@ -241,77 +158,45 @@ stages:
     jobs:
       - deployment: DeployInfrastructure
         displayName: 'Apply Terraform'
-        environment: 'labs'
+        environment: $(ado-environment)
         strategy:
           runOnce:
             deploy:
               steps:
                 - checkout: self
 
-                - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
-                  displayName: 'Install Terraform'
-                  inputs:
+                - template: tasks/install-terraform.yml
+                  parameters:
                     terraformVersion: $(terraformVersion)
 
+                - template: tasks/setup-azure-auth.yml
+                  parameters:
+                    serviceConnection: $(serviceConnection)
+
                 - task: AzureCLI@2
-                  displayName: 'Setup Azure Authentication for Terraform'
+                  displayName: 'Verify Azure CLI'
                   inputs:
                     azureSubscription: '$(serviceConnection)'
                     scriptType: 'bash'
                     scriptLocation: 'inlineScript'
-                    addSpnToEnvironment: true
                     inlineScript: |
-                      echo "Setting up Azure authentication environment variables for Terraform OIDC..."
-                      
-                      # Export service principal details as environment variables
-                      echo "##vso[task.setvariable variable=ARM_CLIENT_ID;issecret=false]$servicePrincipalId"
-                      echo "##vso[task.setvariable variable=ARM_TENANT_ID;issecret=false]$tenantId"
-                      echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;issecret=false]$(az account show --query id -o tsv)"
-                      echo "##vso[task.setvariable variable=ARM_USE_OIDC;issecret=false]true"
-                      echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN;issecret=true]$idToken"
-                      
-                      echo "✓ Azure authentication variables configured"
-                      echo "  Client ID: $servicePrincipalId"
-                      echo "  Tenant ID: $tenantId"
-                      echo "  Subscription ID: $(az account show --query id -o tsv)"
-                      
-                      # Verify Azure CLI is working
-                      echo ""
                       echo "Azure CLI Version:"
                       az --version
 
-                - task: TerraformTask@5
-                  displayName: 'Terraform Init'
-                  inputs:
-                    provider: 'azurerm'
-                    command: 'init'
+                - template: tasks/terraform-init.yml
+                  parameters:
                     workingDirectory: $(workingDirectory)
-                    backendServiceArm: 'sp-ado-cuadmproj-containers'
-                    backendAzureRmResourceGroupName: $(tfStateResourceGroup)
-                    backendAzureRmStorageAccountName: $(tfStateStorageAccount)
-                    backendAzureRmContainerName: $(tfStateContainer)
-                    backendAzureRmKey: $(tfStateKey)
-                  env:
-                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-                    ARM_TENANT_ID: $(ARM_TENANT_ID)
-                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-                    ARM_USE_OIDC: $(ARM_USE_OIDC)
-                    ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
+                    serviceConnection: $(serviceConnection)
+                    tfStateResourceGroup: $(tfStateResourceGroup)
+                    tfStateStorageAccount: $(tfStateStorageAccount)
+                    tfStateContainer: $(tfStateContainer)
+                    tfStateKey: $(tfStateKey)
 
-                - task: TerraformTask@5
-                  displayName: 'Terraform Apply'
-                  inputs:
-                    provider: 'azurerm'
-                    command: 'apply'
+                - template: tasks/terraform-apply.yml
+                  parameters:
                     workingDirectory: $(workingDirectory)
+                    serviceConnection: $(serviceConnection)
                     commandOptions: '-auto-approve'
-                    environmentServiceNameAzureRM: 'sp-ado-cuadmproj-containers'
-                  env:
-                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-                    ARM_TENANT_ID: $(ARM_TENANT_ID)
-                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-                    ARM_USE_OIDC: $(ARM_USE_OIDC)
-                    ARM_OIDC_TOKEN: $(ARM_OIDC_TOKEN)
 
                 - task: AzureCLI@2
                   displayName: 'Create Image Template'
