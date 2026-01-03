@@ -1,0 +1,160 @@
+name: Deploy Packer Infrastructure and Build Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pkr/**'
+      - 'infra-pkr/**'
+      - '!infra-pkr/.terraform.lock.hcl'
+  workflow_dispatch:
+
+env:
+  TERRAFORM_VERSION: '1.14.3'
+  PACKER_VERSION: '1.14.3'
+  TERRAFORM_WORKING_DIRECTORY: './infra-pkr'
+  PACKER_WORKING_DIRECTORY: './pkr'
+
+jobs:
+  terraform-plan:
+    name: Terraform Validate and Plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: ./.github/workflows/steps/setup-terraform
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Azure Login
+        uses: ./.github/workflows/steps/azure-login
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Azure Authentication
+        uses: ./.github/workflows/steps/setup-azure-auth
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        uses: ./.github/workflows/steps/terraform-init
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          container_name: ${{ vars.TF_STATE_CONTAINER }}
+          state_key: ${{ vars.TF_STATE_KEY_PACKER }}
+
+      - name: Terraform Format Check
+        uses: ./.github/workflows/steps/terraform-format-check
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+      - name: Terraform Validate
+        uses: ./.github/workflows/steps/terraform-validate
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+      - name: Terraform Plan
+        uses: ./.github/workflows/steps/terraform-plan
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TERRAFORM_WORKING_DIRECTORY }}/tfplan
+          retention-days: 7
+
+  terraform-apply-and-build:
+    name: Apply Terraform and Build Packer Image
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main'
+    environment: labs
+    timeout-minutes: 180
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: ./.github/workflows/steps/setup-terraform
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: 'false'
+
+      - name: Azure Login
+        uses: ./.github/workflows/steps/azure-login
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Azure Authentication
+        uses: ./.github/workflows/steps/setup-azure-auth
+        with:
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+      - name: Terraform Init
+        uses: ./.github/workflows/steps/terraform-init
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          resource_group: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+          storage_account: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+          container_name: ${{ vars.TF_STATE_CONTAINER }}
+          state_key: ${{ vars.TF_STATE_KEY_PACKER }}
+
+      - name: Terraform Apply
+        uses: ./.github/workflows/steps/terraform-apply
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+      - name: Export Terraform Outputs
+        uses: ./.github/workflows/steps/export-terraform-outputs
+        with:
+          working_directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+      - name: Install Packer
+        uses: ./.github/workflows/steps/install-packer
+        with:
+          packer_version: ${{ env.PACKER_VERSION }}
+
+      - name: Packer Init
+        working-directory: ${{ env.PACKER_WORKING_DIRECTORY }}
+        run: packer init windows-2022.pkr.hcl
+
+      - name: Setup Packer Environment Variables
+        uses: ./.github/workflows/steps/setup-packer-env
+        with:
+          image_version: 1.0.${{ github.run_number }}
+          vm_size: Standard_D2s_v3
+          os_disk_size_gb: '127'
+
+      - name: Packer Validate
+        working-directory: ${{ env.PACKER_WORKING_DIRECTORY }}
+        run: packer validate windows-2022.pkr.hcl
+
+      - name: Packer Build
+        working-directory: ${{ env.PACKER_WORKING_DIRECTORY }}
+        run: |
+          echo "Building image version: ${{ env.PKR_VAR_image_version }}"
+          packer build windows-2022.pkr.hcl
+
+      - name: Display Build Summary
+        run: |
+          echo "========================================="
+          echo "Packer Image Build Completed!"
+          echo "========================================="
+          echo "Image Version: ${{ env.PKR_VAR_image_version }}"
+          echo "Gallery: ${{ env.GALLERY_NAME }}"
+          echo "Image Definition: ${{ env.IMAGE_DEFINITION_NAME }}"
+          echo "Resource Group: ${{ env.RESOURCE_GROUP_NAME }}"
+          echo "========================================="

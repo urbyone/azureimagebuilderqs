@@ -1,0 +1,30 @@
+name: Export Terraform Outputs
+description: Export Terraform outputs as environment variables
+
+inputs:
+  working_directory:
+    description: 'Working directory for Terraform'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Export Terraform Outputs
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        echo "Exporting Terraform outputs..."
+        
+        # Export outputs as environment variables
+        echo "SUBSCRIPTION_ID=$(terraform output -raw subscription_id)" >> $GITHUB_ENV
+        echo "RESOURCE_GROUP_NAME=$(terraform output -raw resource_group_name)" >> $GITHUB_ENV
+        echo "LOCATION=$(terraform output -raw location)" >> $GITHUB_ENV
+        echo "MANAGED_IDENTITY_CLIENT_ID=$(terraform output -raw managed_identity_client_id)" >> $GITHUB_ENV
+        echo "MANAGED_IDENTITY_ID=$(terraform output -raw managed_identity_id)" >> $GITHUB_ENV
+        echo "GALLERY_NAME=$(terraform output -raw gallery_name)" >> $GITHUB_ENV
+        echo "IMAGE_DEFINITION_NAME=$(terraform output -raw image_definition_name)" >> $GITHUB_ENV
+        echo "SOURCE_IMAGE_PUBLISHER=$(terraform output -raw source_image_publisher)" >> $GITHUB_ENV
+        echo "SOURCE_IMAGE_OFFER=$(terraform output -raw source_image_offer)" >> $GITHUB_ENV
+        echo "SOURCE_IMAGE_SKU=$(terraform output -raw source_image_sku)" >> $GITHUB_ENV
+        
+        echo "✓ Terraform outputs exported to environment"

@@ -1,0 +1,28 @@
+name: Install Packer
+description: Install and configure Packer
+
+inputs:
+  packer_version:
+    description: 'Packer version to install'
+    required: true
+    default: '1.14.3'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Packer
+      shell: bash
+      run: |
+        echo "Installing Packer..."
+        
+        # Download and install Packer
+        PACKER_VERSION=${{ inputs.packer_version }}
+        wget -q https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
+        unzip -o packer_${PACKER_VERSION}_linux_amd64.zip
+        sudo mv packer /usr/local/bin/
+        sudo chmod +x /usr/local/bin/packer
+        
+        # Verify installation
+        packer version
+        
+        echo "✓ Packer installed successfully"

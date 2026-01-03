@@ -1,0 +1,57 @@
+name: Setup Packer Environment Variables
+description: Configure Packer environment variables from Terraform outputs
+
+inputs:
+  image_version:
+    description: 'Image version to build'
+    required: true
+  vm_size:
+    description: 'VM size for build'
+    required: false
+    default: 'Standard_D2s_v3'
+  os_disk_size_gb:
+    description: 'OS disk size in GB'
+    required: false
+    default: '127'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Packer Environment Variables
+      shell: bash
+      run: |
+        echo "Setting up Packer environment variables..."
+        
+        # Convert location to display name for replication regions
+        case "${{ env.LOCATION }}" in
+          "uksouth") REPLICATION_REGION="UK South" ;;
+          "ukwest") REPLICATION_REGION="UK West" ;;
+          "eastus") REPLICATION_REGION="East US" ;;
+          "eastus2") REPLICATION_REGION="East US 2" ;;
+          "westus") REPLICATION_REGION="West US" ;;
+          "westus2") REPLICATION_REGION="West US 2" ;;
+          "centralus") REPLICATION_REGION="Central US" ;;
+          "northeurope") REPLICATION_REGION="North Europe" ;;
+          "westeurope") REPLICATION_REGION="West Europe" ;;
+          *) REPLICATION_REGION="UK South" ;;
+        esac
+        
+        # Export Packer environment variables
+        echo "PKR_VAR_subscription_id=${{ env.SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+        echo "PKR_VAR_resource_group_name=${{ env.RESOURCE_GROUP_NAME }}" >> $GITHUB_ENV
+        echo "PKR_VAR_location=${{ env.LOCATION }}" >> $GITHUB_ENV
+        echo "PKR_VAR_replication_region=$REPLICATION_REGION" >> $GITHUB_ENV
+        echo "PKR_VAR_managed_identity_client_id=${{ env.MANAGED_IDENTITY_CLIENT_ID }}" >> $GITHUB_ENV
+        echo "PKR_VAR_managed_identity_id=${{ env.MANAGED_IDENTITY_ID }}" >> $GITHUB_ENV
+        echo "PKR_VAR_gallery_name=${{ env.GALLERY_NAME }}" >> $GITHUB_ENV
+        echo "PKR_VAR_image_definition_name=${{ env.IMAGE_DEFINITION_NAME }}" >> $GITHUB_ENV
+        echo "PKR_VAR_source_image_publisher=${{ env.SOURCE_IMAGE_PUBLISHER }}" >> $GITHUB_ENV
+        echo "PKR_VAR_source_image_offer=${{ env.SOURCE_IMAGE_OFFER }}" >> $GITHUB_ENV
+        echo "PKR_VAR_source_image_sku=${{ env.SOURCE_IMAGE_SKU }}" >> $GITHUB_ENV
+        echo "PKR_VAR_image_version=${{ inputs.image_version }}" >> $GITHUB_ENV
+        echo "PKR_VAR_vm_size=${{ inputs.vm_size }}" >> $GITHUB_ENV
+        echo "PKR_VAR_os_disk_size_gb=${{ inputs.os_disk_size_gb }}" >> $GITHUB_ENV
+        
+        echo "✓ Packer environment variables configured"
+        echo "  Replication Region: $REPLICATION_REGION"
+        echo "  Image Version: ${{ inputs.image_version }}"
