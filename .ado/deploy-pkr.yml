@@ -4,7 +4,6 @@ trigger:
       - main
   paths:
     include:
-      - pkr/**
       - infra-pkr/**
     exclude:
       - infra-aib/.terraform.lock.hcl
@@ -22,7 +21,7 @@ variables:
   - name: terraformWorkingDirectory
     value: '$(System.DefaultWorkingDirectory)/infra-pkr'
   - name: packerWorkingDirectory
-    value: '$(System.DefaultWorkingDirectory)/pkr'
+    value: '$(System.DefaultWorkingDirectory)/infra-pkr/pkr'
   - name: imageVersion
     value: '1.0.$(Build.BuildId)'
   - name: ado-environment
