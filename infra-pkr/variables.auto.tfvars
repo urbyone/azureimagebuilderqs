@@ -1,7 +1,7 @@
 resource_group_name   = "rg-packerbuild-ghub"
 location              = "uksouth"
 managed_identity_name = "uami-packerbuild-ghub"
-gallery_name          = "sigpackerimagesghub" # Must be alphanumeric
+gallery_name          = "sigpackerimagesghub01" # Must be alphanumeric
 image_definition_name = "windows-server-2022-custom"
 vm_profile = {
   vmSize       = "Standard_D2s_v3"
