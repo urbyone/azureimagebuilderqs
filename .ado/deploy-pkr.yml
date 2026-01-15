@@ -17,7 +17,7 @@ variables:
   - name: packerVersion
     value: '1.14.3'
   - name: serviceConnection
-    value: 'sp-ado-cuadmproj-containers'  
+    value: 'app-ado-cuadmproj-linuxlabs-sc'  
   - name: terraformWorkingDirectory
     value: '$(System.DefaultWorkingDirectory)/infra-pkr'
   - name: packerWorkingDirectory
