@@ -32,7 +32,7 @@ override.tf.json
 terraform.rc
 
 # Backend configuration files (may contain sensitive data)
-.backend.hcl
+.backend*
 
 # Environment variables file (contains secrets)
 .env*

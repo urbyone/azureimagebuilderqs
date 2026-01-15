@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parse values from variables.auto.tfvars
-TFVARS_FILE="variables.auto.tfvars"
+TFVARS_FILE="infra-pkr/variables.auto.tfvars"
 
 if [ ! -f "$TFVARS_FILE" ]; then
     echo "Error: $TFVARS_FILE not found"
