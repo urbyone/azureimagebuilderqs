@@ -82,5 +82,6 @@ fi
 
 # Run terraform destroy
 echo ""
+cd infra-pkr || { echo "Error: Could not change directory to infra-pkr"; exit 1; }
 echo "Running terraform destroy..."
 terraform destroy
