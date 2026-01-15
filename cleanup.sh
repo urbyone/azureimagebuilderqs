@@ -82,6 +82,17 @@ fi
 
 # Run terraform destroy
 echo ""
-cd infra-pkr || { echo "Error: Could not change directory to infra-pkr"; exit 1; }
-echo "Running terraform destroy..."
-terraform destroy
+if [ -f "/workspace/infra-pkr/.terraform/terraform.tfstate" ]; then
+    echo "Running terraform destroy for PKR..."
+    terraform -chdir=/workspace/infra-pkr destroy
+else
+    echo "Skipping PKR destroy - Terraform not initialized (no .terraform/terraform.tfstate found)"
+fi
+
+echo ""
+if [ -f "/workspace/infra-aib/.terraform/terraform.tfstate" ]; then
+    echo "Running terraform destroy for AIB..."
+    terraform -chdir=/workspace/infra-aib destroy
+else
+    echo "Skipping AIB destroy - Terraform not initialized (no .terraform/terraform.tfstate found)"
+fi
