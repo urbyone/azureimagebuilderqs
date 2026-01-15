@@ -18,7 +18,7 @@ variables:
   - name: workingDirectory
     value: '$(System.DefaultWorkingDirectory)/infra-aib'
   - name: serviceConnection
-    value: 'sp-ado-cuadmproj-containers'
+    value: 'app-ado-cuadmproj-linuxlabs-sc'
   - name: ado-environment
     value: 'labs'
 
