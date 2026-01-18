@@ -6,7 +6,7 @@ trigger:
     include:
       - infra-pkr/**
     exclude:
-      - infra-aib/.terraform.lock.hcl
+      - infra-pkr/.terraform.lock.hcl
 pool:
   vmImage: 'ubuntu-latest'
 
